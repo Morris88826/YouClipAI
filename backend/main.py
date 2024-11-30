@@ -16,7 +16,7 @@ overview_chain = OverviewTask(global_llm)
 searcher = SearchTask(YouTube_API_KEY)
 
 if __name__ == "__main__":
-    query = "I want to find the clip of Austin Reaves commenting about working out during Laker's 2024 media day."
+    query = "I want to find the clip of Austin Reaves commenting about working out during Laker's media day 2024."
     result = overview_chain.process(query)
     
     
