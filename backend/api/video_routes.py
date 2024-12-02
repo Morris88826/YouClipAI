@@ -132,6 +132,7 @@ def progress(task_id):
             "task_type": task["task_type"],
             "progress": task["progress"],
             "message": task["message"],
+            "num_chunks": task["num_chunks"]
         })
 
     if task["status"] == "completed":
@@ -152,6 +153,7 @@ def analyze_asr():
         "status": "processing",
         "progress": 0,
         "message": "Processing the audio",
+        "num_chunks": 0
     }
     # Start the background process
     thread = Thread(target=_analyze_asr, args=(video_id, task_id))
@@ -188,6 +190,7 @@ def _analyze_asr(video_id, task_id, chunk_length_ms=120*1000):
             "status": "completed",
             "progress": 100,
             "message": "Successfully processed the audio",
+            "num_chunks": len(chunks)
         }
     except Exception as e:
         tasks[task_id] = {
@@ -195,6 +198,7 @@ def _analyze_asr(video_id, task_id, chunk_length_ms=120*1000):
             "status": "error",
             "progress": 100,
             "message": str(e),
+            "num_chunks": 0
         }
     return
 

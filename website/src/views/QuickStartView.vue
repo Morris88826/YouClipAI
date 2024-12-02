@@ -81,6 +81,28 @@
         </div>
       </div>
     </div>
+    <div v-if="numChunks > 0" class="mt-5">
+      <h3>Query:</h3>
+      <div class="form-group mt-3">
+        <textarea
+          class="form-control form-control-lg mb-3"
+          placeholder="Enter your query"
+          rows="5"
+        ></textarea>
+        <button
+          class="btn btn-primary btn-lg btn-block"
+          style="min-width: 0"
+        >
+          <span
+            v-if="loading"
+            class="spinner-border spinner-border-sm"
+            role="status"
+            aria-hidden="true"
+          ></span>
+          {{ loading ? " Processing..." : "Search" }}
+        </button>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -95,7 +117,7 @@ export default {
       progress: 0,
       loading: false,
       video: null,
-      transcriptions: [],
+      numChunks: 0,
       apiBaseUrl: process.env.VUE_APP_API_BASE_URL || "http://127.0.0.1:5000",
     };
   },
@@ -107,7 +129,7 @@ export default {
       }
       this.loading = true;
       this.progress = 0;
-      this.transcriptions = [];
+      this.numChunks = 0;
       this.video = null;
 
       try {
@@ -145,24 +167,23 @@ export default {
             clearInterval(interval);
             this.loading = false;
             this.progress = 0;
-            if (progress_type == "fetch_video"){
+            if (progress_type == "fetch_video") {
               alert(
                 "Error processing the video. Please input a valid YouTube URL."
               );
-            }
-            else if (progress_type == "analyze_asr"){
-              alert(
-                "Error processing the video. Please try again later."
-              );
+            } else if (progress_type == "analyze_asr") {
+              alert("Error processing the video. Please try again later.");
             }
             return;
           }
-          
+
           this.progress = progressResponse.data.progress;
           if (progress_type == "fetch_video")
             this.video = progressResponse.data.video || {};
-          else if(progress_type == "analyze_asr")
-            this.transcriptions = progressResponse.data.transcriptions || [];
+          else if (progress_type == "analyze_asr")
+            this.numChunks = progressResponse.data.num_chunks || 0;
+
+          console.log(this.numChunks);
           // Show progress only when greater than 0
           if (this.progress > 0) {
             this.loading = false;
