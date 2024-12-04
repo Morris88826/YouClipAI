@@ -23,23 +23,9 @@
           @click="submitQuery"
           :disabled="loading"
         >
-          <span
-            v-if="loading"
-            class="spinner-border spinner-border-sm"
-            role="status"
-            aria-hidden="true"
-          ></span>
           {{ loading ? " Processing..." : "Fetch Video" }}
         </button>
       </div>
-    </div>
-
-    <!-- Loading State -->
-    <div v-if="loading" class="text-center mt-4">
-      <div class="spinner-border text-primary" role="status">
-        <span class="sr-only">Loading...</span>
-      </div>
-      <p class="mt-2">Processing your request, please wait...</p>
     </div>
 
     <!-- Search Result -->
@@ -63,44 +49,53 @@
           >
             Analyze
           </button>
-
-          <div v-if="progress > 0 && progress <= 100" class="mt-4">
-            <div class="progress" style="height: 30px">
-              <div
-                class="progress-bar progress-bar-striped progress-bar-animated bg-info"
-                role="progressbar"
-                :style="{ width: `${progress}%` }"
-                :aria-valuenow="progress"
-                aria-valuemin="0"
-                aria-valuemax="100"
-              >
-                {{ progress }}%
-              </div>
-            </div>
-          </div>
         </div>
       </div>
     </div>
-    <div v-if="numChunks > 0" class="mt-5">
+    <div v-if="analyzeMetadata" class="mt-5">
       <h3>Query:</h3>
       <div class="form-group mt-3">
         <textarea
           class="form-control form-control-lg mb-3"
           placeholder="Enter your query"
           rows="5"
+          v-model="query"
         ></textarea>
         <button
           class="btn btn-primary btn-lg btn-block"
           style="min-width: 0"
+          @click="searchContent"
         >
-          <span
-            v-if="loading"
-            class="spinner-border spinner-border-sm"
-            role="status"
-            aria-hidden="true"
-          ></span>
-          {{ loading ? " Processing..." : "Search" }}
+          Search
         </button>
+      </div>
+    </div>
+
+    <div v-if="videoClips.length > 0" class="mt-5">
+      <h3>Extracted Clips:</h3>
+      <div v-for="(clip, index) in videoClips" :key="index" class="mt-4">
+        <h5>
+          Clip {{ index + 1 }}: {{ formatTime(clip.start_time) }} -
+          {{ formatTime(clip.end_time) }}
+        </h5>
+        <video width="100%" height="315" controls :src="clip.video_clip_path">
+          Your browser does not support the video tag.
+        </video>
+      </div>
+    </div>
+
+    <div v-if="progress > 0 && progress < 100" class="mt-4">
+      <div class="progress" style="height: 30px">
+        <div
+          class="progress-bar progress-bar-striped progress-bar-animated bg-info"
+          role="progressbar"
+          :style="{ width: `${progress}%` }"
+          :aria-valuenow="progress"
+          aria-valuemin="0"
+          aria-valuemax="100"
+        >
+          {{ progress }}%
+        </div>
       </div>
     </div>
   </div>
@@ -114,12 +109,22 @@ export default {
     return {
       youtubeURL:
         "https://www.youtube.com/watch?v=cNXxqE7hs9U&ab_channel=TheSportingTribune",
+      query:
+        "I want to find the clip of Austin Reaves commenting about posting working out in gym during Laker's media day 2024.",
       progress: 0,
       loading: false,
       video: null,
-      numChunks: 0,
+      videoClips: [],
+      analyzeMetadata: null,
       apiBaseUrl: process.env.VUE_APP_API_BASE_URL || "http://127.0.0.1:5000",
     };
+  },
+  computed: {
+    videoEmbedUrl() {
+      return this.video
+        ? `${this.video.url.replace("watch?v=", "embed/")}`
+        : "";
+    },
   },
   methods: {
     async submitQuery() {
@@ -128,12 +133,9 @@ export default {
         return;
       }
       this.loading = true;
-      this.progress = 0;
-      this.numChunks = 0;
-      this.video = null;
+      this.resetData();
 
       try {
-        // Send query to the backend
         const response = await axios.post(
           `${this.apiBaseUrl}/api/videos/fetch`,
           {
@@ -142,72 +144,50 @@ export default {
         );
 
         if (response.data.status === "success") {
-          const taskId = response.data.task_id;
-          this.pollProgress(taskId);
+          this.pollProgress(response.data.task_id);
         } else {
-          alert("Error starting the process.");
-          this.loading = false;
+          this.handleError("Error starting the process.");
         }
       } catch (error) {
-        console.error("Error:", error);
-        alert("Failed to send query.");
-        this.loading = false;
+        this.handleError("Failed to send query.");
       }
     },
 
     async pollProgress(taskId) {
       const interval = setInterval(async () => {
         try {
-          const progressResponse = await axios.get(
+          const response = await axios.get(
             `${this.apiBaseUrl}/api/videos/progress/${taskId}`
           );
 
-          const progress_type = progressResponse.data.task_type;
-          if (progressResponse.data.status === "error") {
+          if (response.data.status === "error") {
             clearInterval(interval);
-            this.loading = false;
-            this.progress = 0;
-            if (progress_type == "fetch_video") {
-              alert(
-                "Error processing the video. Please input a valid YouTube URL."
-              );
-            } else if (progress_type == "analyze_asr") {
-              alert("Error processing the video. Please try again later.");
-            }
+            this.handleError("Error during processing.");
             return;
           }
 
-          this.progress = progressResponse.data.progress;
-          if (progress_type == "fetch_video")
-            this.video = progressResponse.data.video || {};
-          else if (progress_type == "analyze_asr")
-            this.numChunks = progressResponse.data.num_chunks || 0;
-
-          console.log(this.numChunks);
-          // Show progress only when greater than 0
-          if (this.progress > 0) {
-            this.loading = false;
+          this.progress = response.data.progress;
+          if (response.data.task_type === "fetch_video") {
+            this.video = response.data.video || {};
+          } else if (response.data.task_type === "analyze_asr") {
+            this.analyzeMetadata = response.data.metadata || {};
+          } else if (response.data.task_type === "search_content") {
+            this.videoClips = response.data.data || [];
           }
 
           if (this.progress >= 100) {
             clearInterval(interval);
             this.loading = false;
-            this.progress = 0;
           }
         } catch (error) {
-          console.error("Error polling progress:", error);
           clearInterval(interval);
-          this.loading = false;
-          alert("Error polling progress.");
+          this.handleError("Error polling progress.");
         }
-      }, 1000); // Poll every second
+      }, 1000);
     },
 
     async startAnalysis() {
-      this.analyzeProgress = 0;
-
       try {
-        // Send query to the backend
         const response = await axios.post(
           `${this.apiBaseUrl}/api/videos/analyze_asr`,
           {
@@ -216,17 +196,62 @@ export default {
         );
 
         if (response.data.status === "success") {
-          const taskId = response.data.task_id;
-          this.pollProgress(taskId);
+          this.pollProgress(response.data.task_id);
         } else {
-          alert("Error starting the process.");
-          this.loading = false;
+          this.handleError("Error starting the analysis.");
         }
       } catch (error) {
-        console.error("Error:", error);
-        alert("Failed to send query.");
-        this.loading = false;
+        this.handleError("Failed to start analysis.");
       }
+    },
+
+    async searchContent() {
+      if (!this.query.trim()) {
+        alert("Please enter a query.");
+        return;
+      }
+
+      try {
+        const response = await axios.post(
+          `${this.apiBaseUrl}/api/videos/search_content`,
+          {
+            query: this.query,
+            metadata: this.analyzeMetadata,
+          }
+        );
+
+        if (response.data.status === "success") {
+          this.pollProgress(response.data.task_id);
+        } else {
+          this.handleError("Error searching content.");
+        }
+      } catch (error) {
+        this.handleError("Failed to search content.");
+      }
+    },
+
+    getClipUrl(videoId, startTime, endTime) {
+      return `https://www.youtube.com/embed/${videoId}?start=${Math.floor(
+        startTime
+      )}&end=${Math.floor(endTime)}&autoplay=1`;
+    },
+
+    formatTime(seconds) {
+      const minutes = Math.floor(seconds / 60);
+      const remainingSeconds = Math.floor(seconds % 60);
+      return `${minutes}:${remainingSeconds.toString().padStart(2, "0")}`;
+    },
+
+    resetData() {
+      this.progress = 0;
+      this.video = null;
+      this.analyzeMetadata = null;
+      this.videoClips = [];
+    },
+
+    handleError(message) {
+      this.loading = false;
+      alert(message);
     },
   },
 };
