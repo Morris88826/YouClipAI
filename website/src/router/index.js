@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import HomeView from '../views/HomeView.vue'
 import QuickStartView from '../views/QuickStartView.vue'
+import AdvancedView from '../views/AdvancedView.vue'
 
 const routes = [
   {
@@ -12,6 +13,11 @@ const routes = [
     path: '/start',
     name: 'start',
     component: QuickStartView
+  },
+  {
+    path: '/advanced',
+    name: 'advanced',
+    component: AdvancedView
   }
 ]
 

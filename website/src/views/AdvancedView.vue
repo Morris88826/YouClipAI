@@ -2,72 +2,19 @@
   <div id="app" class="container mt-5">
     <!-- Header Section -->
     <header class="text-center mb-4">
-      <h1 class="display-4">YouClipAI - Quick Start</h1>
+      <h1 class="display-4">YouClipAI - Advanced Search</h1>
       <p class="lead">
-        Easily Analyze and Extract Clips from Any YouTube Video URL
+        Discover Clips That Match Your Query – Extract and Search from YouTube
+        Videos Instantly
       </p>
     </header>
 
-    <!-- Search Form -->
-    <section class="mb-4">
-      <div class="form-group row align-items-center">
-        <div class="col-md-9">
-          <input
-            type="text"
-            class="form-control form-control-lg"
-            placeholder="Enter YouTube URL"
-            v-model="youtubeURL"
-            aria-label="YouTube URL"
-          />
-        </div>
-        <div class="col-md-3">
-          <button
-            class="btn btn-primary btn-lg btn-block"
-            @click="submitQuery"
-            :disabled="loading"
-            aria-label="Fetch Video Button"
-          >
-            <span
-              v-if="loading"
-              class="spinner-border spinner-border-sm"
-            ></span>
-            {{ loading ? "Processing..." : "Fetch Video" }}
-          </button>
-        </div>
-      </div>
-    </section>
-
-    <!-- Video Information Section -->
-    <section v-if="video" class="mt-5 text-center">
-      <div class="card">
-        <div class="card-body">
-          <h3 class="card-title mb-3">{{ video.title }}</h3>
-          <iframe
-            :src="videoEmbedUrl"
-            width="100%"
-            height="315"
-            frameborder="0"
-            allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-            allowfullscreen
-          ></iframe>
-          <button
-            class="btn btn-secondary mt-3"
-            @click="startAnalysis"
-            :disabled="loading"
-            aria-label="Analyze Video Button"
-          >
-            Analyze Video
-          </button>
-        </div>
-      </div>
-    </section>
-
     <!-- Query Input Section -->
-    <section v-if="analyzeMetadata" class="mt-5">
-      <h3>Query the Video:</h3>
+    <section class="mt-5">
+      <h3>Query:</h3>
       <textarea
         class="form-control form-control-lg mb-3"
-        placeholder="Enter your query here"
+        placeholder="I want to find the clip of Austin Reaves commenting about posting working out in gym during Laker's media day 2024."
         rows="3"
         v-model="query"
         aria-label="Query Input"
