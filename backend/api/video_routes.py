@@ -19,6 +19,54 @@ download_dir='./downloads'
 asr_model = whisper.load_model("turbo")
 
 tasks = {}
+@video_bp.route('/progress/<task_id>', methods=['GET'])
+def progress(task_id):
+    task = tasks.get(task_id)
+    if not task:
+        tasks.pop(task_id)
+        return jsonify({"status": "error", "message": "Task not found"}), 404
+    
+    if task['task_type'] == 'fetch_video':
+        p = jsonify({
+            "status": task["status"],
+            "task_type": task["task_type"],
+            "progress": task["progress"],
+            "message": task["message"],
+            "video": {
+                "title": task["video"]["title"],
+                "id": task["video"]["id"],
+                "url": task["video"]["url"]
+            }
+        })
+    elif task['task_type'] == 'analyze_asr':
+        p = jsonify({
+            "status": task["status"],
+            "task_type": task["task_type"],
+            "progress": task["progress"],
+            "message": task["message"],
+            "metadata": task.get("metadata", None)
+        })
+    elif task['task_type'] == 'search_content':
+        p = jsonify({
+            "status": task["status"],
+            "task_type": task["task_type"],
+            "progress": task["progress"],
+            "message": task["message"],
+            "data": task.get("data", [])
+        })
+    elif task['task_type'] == 'advanced_search':
+        p = jsonify({
+            "status": task["status"],
+            "task_type": task["task_type"],
+            "progress": task["progress"],
+            "message": task["message"],
+            "data": task.get("data", [])
+        })
+
+    if task["status"] == "completed":
+        tasks.pop(task_id)
+    return p
+
 @video_bp.route('/fetch', methods=['POST'])
 def fetch_video():
     # Logic for analyzing a video
@@ -114,46 +162,6 @@ def _fetch_video(youtube_url, task_id):
             }
         }
     return 
-
-@video_bp.route('/progress/<task_id>', methods=['GET'])
-def progress(task_id):
-    task = tasks.get(task_id)
-    if not task:
-        tasks.pop(task_id)
-        return jsonify({"status": "error", "message": "Task not found"}), 404
-    
-    if task['task_type'] == 'fetch_video':
-        p = jsonify({
-            "status": task["status"],
-            "task_type": task["task_type"],
-            "progress": task["progress"],
-            "message": task["message"],
-            "video": {
-                "title": task["video"]["title"],
-                "id": task["video"]["id"],
-                "url": task["video"]["url"]
-            }
-        })
-    elif task['task_type'] == 'analyze_asr':
-        p = jsonify({
-            "status": task["status"],
-            "task_type": task["task_type"],
-            "progress": task["progress"],
-            "message": task["message"],
-            "metadata": task.get("metadata", None)
-        })
-    elif task['task_type'] == 'search_content':
-        p = jsonify({
-            "status": task["status"],
-            "task_type": task["task_type"],
-            "progress": task["progress"],
-            "message": task["message"],
-            "data": task.get("data", [])
-        })
-
-    if task["status"] == "completed":
-        tasks.pop(task_id)
-    return p
 
 @video_bp.route('/analyze_asr', methods=['POST'])
 def analyze_asr():
@@ -331,25 +339,56 @@ def _search_content(app, task_id, query, metadata):
 def serve_downloads(filename):
     return send_from_directory('./downloads', filename)
 
-@video_bp.route('/search', methods=['POST'])
-def search():
+@video_bp.route('/advanced_search', methods=['POST'])
+def advanced_search():
     data = request.get_json()
     query = data.get("query", "")
     if not query:
         return jsonify({"status": "error", "message": "Query is required"}), 400
 
     task_id = str(int(time.time()))
-    # Start the background process
-    # thread = Thread(target=process_query, args=(task_id, query))
-    # thread.start()
-    result = overview_chain.process(query)
-    if result['success']:
-        search_query = overview_chain.generate_search_query(result['data'])
-        print("Search Query: {} | Original Query: {}".format(search_query, query))
-        search_result = searcher.search(search_query)
-        
-        if search_result['success']:
-            videos = search_result['data']
-            return jsonify({"status": "success", "task_id": task_id, "videos": videos})
 
-    return jsonify({"status": "error", "message": "Failed to process the query"}), 500
+    tasks[task_id] = {
+        "task_type": "advanced_search",
+        "status": "processing",
+        "progress": 0,
+        "message": "Processing the query",
+        "data": []
+    }
+
+    # Start the background process
+    thread = Thread(target=_advanced_search, args=(task_id, query))
+    thread.start()
+
+    return jsonify({"status": "success", "task_id": task_id})
+
+def _advanced_search(task_id, query):
+    try:
+        result = overview_chain.process(query)
+        if result['success']:
+            search_query = overview_chain.generate_search_query(result['data'])
+            print("Search Query: {} | Original Query: {}".format(search_query, query))
+            search_result = searcher.search(search_query)
+            if search_result['success']:
+                videos = search_result['data']
+                tasks[task_id] = {
+                    "task_type": "advanced_search",
+                    "status": "completed",
+                    "progress": 100,
+                    "message": "Successfully processed the query",
+                    "data": videos
+                }
+            else:
+                raise Exception("Failed to search for videos")
+        else:
+            raise Exception("Failed to process the query")
+    except Exception as e:
+        print(e)
+        tasks[task_id] = {
+            "task_type": "search_content",
+            "status": "error",
+            "progress": 100,
+            "message": str(e),
+            "data": []
+        }
+    return

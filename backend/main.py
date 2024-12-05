@@ -4,7 +4,7 @@ import requests
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 from libs.overview import OverviewTask
-from libs.search import SearchTask
+from backend.libs.search_yt import SearcYoutubeTask
 
 
 load_dotenv()
@@ -13,7 +13,7 @@ YouTube_API_KEY = os.getenv('YouTube_API_KEY')
 global_llm = ChatOpenAI(name="gpt-4o-mini", temperature=0, max_tokens=256)
 
 overview_chain = OverviewTask(global_llm)
-searcher = SearchTask(YouTube_API_KEY)
+searcher = SearcYoutubeTask(YouTube_API_KEY)
 
 if __name__ == "__main__":
     query = "I want to find the clip of Austin Reaves commenting about working out during Laker's media day 2024."

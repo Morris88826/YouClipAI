@@ -21,11 +21,12 @@
       ></textarea>
       <button
         class="btn btn-primary btn-lg btn-block"
-        @click="searchContent"
+        @click="searchYoutube"
         :disabled="loading"
-        aria-label="Search Query Button"
+        aria-label="Search Button"
       >
-        Search
+        <span v-if="loading" class="spinner-border spinner-border-sm"></span>
+        {{ loading ? "Processing..." : "Search" }}
       </button>
     </section>
 
@@ -73,8 +74,7 @@ import axios from "axios";
 export default {
   data() {
     return {
-      youtubeURL:
-        "https://www.youtube.com/watch?v=cNXxqE7hs9U&ab_channel=TheSportingTribune",
+      youtubeURLs: [],
       query:
         "I want to find the clip of Austin Reaves commenting about posting working out in gym during Laker's media day 2024.",
       progress: 0,
@@ -93,9 +93,9 @@ export default {
     },
   },
   methods: {
-    async submitQuery() {
-      if (!this.youtubeURL.trim()) {
-        alert("Please enter a YouTube URL.");
+    async searchYoutube() {
+      if (!this.query.trim()) {
+        alert("Please enter a query.");
         return;
       }
       this.loading = true;
@@ -103,9 +103,9 @@ export default {
 
       try {
         const response = await axios.post(
-          `${this.apiBaseUrl}/api/videos/fetch`,
+          `${this.apiBaseUrl}/api/videos/advanced_search`,
           {
-            youtubeURL: this.youtubeURL,
+            query: this.query,
           }
         );
 
@@ -139,6 +139,9 @@ export default {
             this.analyzeMetadata = response.data.metadata || {};
           } else if (response.data.task_type === "search_content") {
             this.videoClips = response.data.data || [];
+          } else if (response.data.task_type === "advanced_search") {
+            this.youtubeURLs = response.data.data || [];
+            console.log(this.youtubeURLs);
           }
 
           if (this.progress >= 100) {

@@ -35,14 +35,23 @@ overview_output_parser = StructuredOutputParser(response_schemas=response_schema
 generate_search_query = PromptTemplate(
     input_variables=["Who", "What", "When", "Where", "How"],
     template=(
-        "Generate a search query based on the extracted information from the 4W1H framework.\n"
+        "Generate an optimized YouTube search query based on the extracted 4W1H framework. "
+        "The query should prioritize relevance and include important keywords to accurately target YouTube's search algorithm. "
+        "Use concise, descriptive terms and consider phrases that users would commonly search for on YouTube.\n"
+        "\n"
+        "Extracted Information:\n"
         "Who: {Who}\n"
         "What: {What}\n"
         "When: {When}\n"
         "Where: {Where}\n"
         "How: {How}\n"
-        "Provide a search query that can be used to search for videos on YouTube.\n"
-        "The search query should be concise and relevant to the extracted information."
+        "\n"
+        "Guidelines for the query:\n"
+        "1. Include key terms and phrases relevant to the extracted information.\n"
+        "2. Use quotation marks for IMPORTANT content (e.g., \"media day\").\n"
+        "3. Incorporate the year if applicable to ensure results are time-specific.\n"
+        "\n"
+        "Provide a single, well-crafted search query that can be used directly in YouTube.\n"
         "ONLY return the search query as the response."
     ),
 )
