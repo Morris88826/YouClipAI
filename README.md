@@ -14,3 +14,6 @@ within a video rather than relying solely on descriptive metadata. To address
 this issue, we introduce YouClipAI, a platform that integrates video search with
 Large Language Models (LLMs), offering a precise, content-driven method for
 identifying and extracting specific video clips that best match the user’s query.
+
+## Link
+[Demo Video](https://drive.google.com/file/d/1wMWpspFOl6fvAlF8VUh6mp16k-coAtnE/view?usp=sharing)
