@@ -89,7 +89,7 @@ class SearcYoutubeTask:
 
                 print(f"Title: {title}, URL: {url}, Duration: {duration}")
 
-                if duration < 240 or duration > 1200:
+                if duration > 1200 or duration < 60:
                     continue
 
                 results.append({

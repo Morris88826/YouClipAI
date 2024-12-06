@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 load_dotenv()
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 YouTube_API_KEY = os.getenv('YouTube_API_KEY')
-global_llm = ChatOpenAI(name="gpt-4o-mini", temperature=0, max_tokens=512)
+global_llm = ChatOpenAI(name="gpt-4o", temperature=0, max_tokens=512)
 
 overview_chain = OverviewTask(global_llm)
 search_content_chain = SearchContentTask(global_llm)

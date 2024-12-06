@@ -3,7 +3,7 @@
     <nav>
       <ul>
         <li><router-link to="/start">Quick Start</router-link></li>
-        <li><router-link to="/advanced">Advanced</router-link></li>
+        <li><router-link to="/advanced">Advanced Search</router-link></li>
       </ul>
     </nav>
     <main class="content">
