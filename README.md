@@ -1,5 +1,6 @@
 # YouClipAI
 
+## Abstract
 The rapid growth of online video content has significantly transformed how people
 access information. Platforms like YouTube host an extensive range of videos
 across diverse categories, offering users a wealth of resources. However, while
