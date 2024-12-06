@@ -73,7 +73,7 @@
         aria-label="Query Input"
       ></textarea>
       <button
-        class="btn btn-primary btn-lg btn-block"
+        class="btn btn-primary btn-block"
         @click="searchContent"
         :disabled="loading"
         aria-label="Search Query Button"
@@ -140,9 +140,14 @@ export default {
   },
   computed: {
     videoEmbedUrl() {
-      return this.video
-        ? `${this.video.url.replace("watch?v=", "embed/")}`
-        : "";
+      if (this.video && this.video.url) {
+        // Extract the video ID from the URL and create the embed link
+        const videoId = this.video.url.match(/v=([a-zA-Z0-9_-]{11})/);
+        if (videoId && videoId[1]) {
+          return `https://www.youtube.com/embed/${videoId[1]}`;
+        }
+      }
+      return "";
     },
   },
   methods: {
@@ -185,11 +190,13 @@ export default {
             return;
           }
 
+          console.log(response.data);
+
           this.progress = response.data.progress;
           if (response.data.task_type === "fetch_video") {
-            this.video = response.data.video || {};
+            this.video = response.data.data || {};
           } else if (response.data.task_type === "analyze_asr") {
-            this.analyzeMetadata = response.data.metadata || {};
+            this.analyzeMetadata = response.data.data || null;
           } else if (response.data.task_type === "search_content") {
             this.videoClips = response.data.data || [];
           }
@@ -207,10 +214,11 @@ export default {
 
     async startAnalysis() {
       try {
+        this.analyzeMetadata = null;
         const response = await axios.post(
           `${this.apiBaseUrl}/api/videos/analyze_asr`,
           {
-            video_id: this.video.id,
+            video: this.video,
           }
         );
 
@@ -247,12 +255,6 @@ export default {
       } catch (error) {
         this.handleError("Failed to search content.");
       }
-    },
-
-    getClipUrl(videoId, startTime, endTime) {
-      return `https://www.youtube.com/embed/${videoId}?start=${Math.floor(
-        startTime
-      )}&end=${Math.floor(endTime)}&autoplay=1`;
     },
 
     formatTime(seconds) {

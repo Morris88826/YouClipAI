@@ -1,36 +1,71 @@
 <template>
   <div id="app" class="container mt-5">
-    <!-- Header Section -->
+    <!-- Header -->
     <header class="text-center mb-4">
       <h1 class="display-4">YouClipAI - Advanced Search</h1>
-      <p class="lead">
-        Discover Clips That Match Your Query – Extract and Search from YouTube
-        Videos Instantly
-      </p>
+      <p class="lead">Discover Clips That Match Your Query Instantly</p>
     </header>
 
-    <!-- Query Input Section -->
+    <!-- Query Input -->
     <section class="mt-5">
       <h3>Query:</h3>
       <textarea
         class="form-control form-control-lg mb-3"
-        placeholder="I want to find the clip of Austin Reaves commenting about posting working out in gym during Laker's media day 2024."
+        v-model="input_query"
+        placeholder="Enter your query..."
         rows="3"
-        v-model="query"
-        aria-label="Query Input"
       ></textarea>
-      <button
-        class="btn btn-primary btn-lg btn-block"
-        @click="searchYoutube"
-        :disabled="loading"
-        aria-label="Search Button"
-      >
+      <button class="btn btn-primary btn-block" @click="searchYoutube">
         <span v-if="loading" class="spinner-border spinner-border-sm"></span>
-        {{ loading ? "Processing..." : "Search" }}
+        {{ loading ? "Processing..." : "Fetch Video" }}
       </button>
     </section>
 
-    <!-- Video Clips Section -->
+    <!-- Video List -->
+    <section v-if="videos.length > 0" class="mt-5">
+      <h3>Possible Matches:</h3>
+      <ul class="list-group">
+        <li
+          v-for="(video, index) in videos"
+          :key="video.id"
+          class="list-group-item d-flex flex-column"
+        >
+          <div class="d-flex justify-content-between align-items-center">
+            <span>{{ video.title }}</span>
+            <div>
+              <a
+                :href="`https://www.youtube.com/watch?v=${video.id}`"
+                class="btn btn-success btn-sm mr-2"
+                target="_blank"
+              >
+                <i class="fas fa-play"></i>
+              </a>
+
+              <button
+                class="btn btn-danger btn-sm ml-2"
+                @click="deleteVideo(index)"
+              >
+                <i class="fas fa-trash"></i>
+              </button>
+            </div>
+          </div>
+          <!-- Progress -->
+          <div v-if="video.progress > 0 && video.progress < 100" class="mt-3">
+            <small>{{ video.currentStage }}</small>
+            <div class="progress">
+              <div
+                class="progress-bar progress-bar-striped progress-bar-animated bg-info"
+                :style="{ width: `${video.progress}%` }"
+              ></div>
+            </div>
+          </div>
+        </li>
+      </ul>
+      <button class="btn btn-secondary btn-block mt-3" @click="startAnalysis">
+        Analyze
+      </button>
+    </section>
+
     <section v-if="videoClips.length > 0" class="mt-5">
       <h3>Extracted Clips:</h3>
       <div v-for="(clip, index) in videoClips" :key="index" class="mb-4">
@@ -49,22 +84,6 @@
         </video>
       </div>
     </section>
-
-    <!-- Progress Bar -->
-    <div v-if="progress > 0 && progress < 100" class="mt-4">
-      <div class="progress" style="height: 30px">
-        <div
-          class="progress-bar progress-bar-striped progress-bar-animated bg-info"
-          role="progressbar"
-          :style="{ width: `${progress}%` }"
-          aria-valuenow="progress"
-          aria-valuemin="0"
-          aria-valuemax="100"
-        >
-          {{ progress }}%
-        </div>
-      </div>
-    </div>
   </div>
 </template>
 
@@ -74,37 +93,65 @@ import axios from "axios";
 export default {
   data() {
     return {
-      youtubeURLs: [],
-      query:
-        "I want to find the clip of Austin Reaves commenting about posting working out in gym during Laker's media day 2024.",
-      progress: 0,
-      loading: false,
-      video: null,
+      videos: [],
+      current_video: null,
       videoClips: [],
-      analyzeMetadata: null,
+
+      input_query:
+        "I want to find the clip of Austin Reaves commenting about posting working out in gym during Laker's media day 2024.",
+      loading: false,
       apiBaseUrl: process.env.VUE_APP_API_BASE_URL || "http://127.0.0.1:5000",
     };
   },
-  computed: {
-    videoEmbedUrl() {
-      return this.video
-        ? `${this.video.url.replace("watch?v=", "embed/")}`
-        : "";
-    },
-  },
   methods: {
+    deleteVideo(index) {
+      this.videos.splice(index, 1);
+    },
+
     async searchYoutube() {
-      if (!this.query.trim()) {
+      if (!this.input_query.trim()) {
         alert("Please enter a query.");
         return;
       }
       this.loading = true;
-      this.resetData();
+      this.videos = []; // Reset video list before starting a new search
+      this.current_video = null;
+      this.videoClips = [];
 
       try {
         const response = await axios.post(
           `${this.apiBaseUrl}/api/videos/advanced_search`,
           {
+            query: this.input_query,
+          }
+        );
+
+        if (response.data.status === "success") {
+          // Ensure `this` context is preserved for `pollProgress`
+          this.pollProgress(response.data.task_id);
+        } else {
+          alert("Error fetching videos.");
+          this.loading = false;
+        }
+      } catch (error) {
+        console.error("Error searching YouTube:", error);
+        this.loading = false;
+      }
+    },
+
+    async startAnalysis() {
+      try {
+        // Reset progress and stages for all videos
+        for (const video of this.videos) {
+          video.progress = 0;
+          video.currentStage = "Starting";
+        }
+        this.videoClips = [];
+
+        const response = await axios.post(
+          `${this.apiBaseUrl}/api/videos/analyze`,
+          {
+            videos: this.videos,
             query: this.query,
           }
         );
@@ -112,115 +159,68 @@ export default {
         if (response.data.status === "success") {
           this.pollProgress(response.data.task_id);
         } else {
-          this.handleError("Error starting the process.");
+          alert("Error starting the analysis.");
         }
       } catch (error) {
-        this.handleError("Failed to send query.");
+        console.error("Error starting analysis:", error);
       }
     },
 
-    async pollProgress(taskId) {
+    pollProgress(taskId) {
       const interval = setInterval(async () => {
         try {
           const response = await axios.get(
             `${this.apiBaseUrl}/api/videos/progress/${taskId}`
           );
+          const taskData = response.data;
+          console.log("Task data:", taskData, this.videos);
 
-          if (response.data.status === "error") {
-            clearInterval(interval);
-            this.handleError("Error during processing.");
-            return;
-          }
-
-          this.progress = response.data.progress;
-          if (response.data.task_type === "fetch_video") {
-            this.video = response.data.video || {};
-          } else if (response.data.task_type === "analyze_asr") {
-            this.analyzeMetadata = response.data.metadata || {};
-          } else if (response.data.task_type === "search_content") {
-            this.videoClips = response.data.data || [];
-          } else if (response.data.task_type === "advanced_search") {
-            this.youtubeURLs = response.data.data || [];
-            console.log(this.youtubeURLs);
-          }
-
-          if (this.progress >= 100) {
+          if (
+            taskData.task_type === "advanced_search" &&
+            taskData.status === "completed"
+          ) {
+            this.query = taskData.data.query;
+            this.videos = taskData.data.videos;
             clearInterval(interval);
             this.loading = false;
+            console.log("Videos:", this.videos);
+          } else if (taskData.task_type === "analyze") {
+            // Update video progress reactively
+            if (taskData.current_video !== null) {
+              this.videos[taskData.current_video].progress = taskData.progress;
+              this.videos[taskData.current_video].currentStage =
+                taskData.subtask_type;
+              for (
+                let videoIndex = 0;
+                videoIndex < this.videos.length;
+                videoIndex++
+              ) {
+                if (videoIndex !== taskData.current_video) {
+                  this.videos[videoIndex].progress = 0;
+                }
+              }
+            }
+
+            if (
+              taskData.status === "completed" ||
+              taskData.status === "error"
+            ) {
+              clearInterval(interval);
+              this.videoClips = taskData.data || [];
+              console.log("Video clips:", this.videoClips);
+            }
           }
         } catch (error) {
+          console.error("Error polling progress:", error);
           clearInterval(interval);
-          this.handleError("Error polling progress.");
         }
       }, 1000);
-    },
-
-    async startAnalysis() {
-      try {
-        const response = await axios.post(
-          `${this.apiBaseUrl}/api/videos/analyze_asr`,
-          {
-            video_id: this.video.id,
-          }
-        );
-
-        if (response.data.status === "success") {
-          this.pollProgress(response.data.task_id);
-        } else {
-          this.handleError("Error starting the analysis.");
-        }
-      } catch (error) {
-        this.handleError("Failed to start analysis.");
-      }
-    },
-
-    async searchContent() {
-      if (!this.query.trim()) {
-        alert("Please enter a query.");
-        return;
-      }
-
-      try {
-        const response = await axios.post(
-          `${this.apiBaseUrl}/api/videos/search_content`,
-          {
-            query: this.query,
-            metadata: this.analyzeMetadata,
-          }
-        );
-
-        if (response.data.status === "success") {
-          this.pollProgress(response.data.task_id);
-        } else {
-          this.handleError("Error searching content.");
-        }
-      } catch (error) {
-        this.handleError("Failed to search content.");
-      }
-    },
-
-    getClipUrl(videoId, startTime, endTime) {
-      return `https://www.youtube.com/embed/${videoId}?start=${Math.floor(
-        startTime
-      )}&end=${Math.floor(endTime)}&autoplay=1`;
     },
 
     formatTime(seconds) {
       const minutes = Math.floor(seconds / 60);
       const remainingSeconds = Math.floor(seconds % 60);
       return `${minutes}:${remainingSeconds.toString().padStart(2, "0")}`;
-    },
-
-    resetData() {
-      this.progress = 0;
-      this.video = null;
-      this.analyzeMetadata = null;
-      this.videoClips = [];
-    },
-
-    handleError(message) {
-      this.loading = false;
-      alert(message);
     },
   },
 };
@@ -260,5 +260,29 @@ textarea {
   text-align: center;
   font-weight: bold;
   color: #fff;
+}
+
+h5 {
+  margin-bottom: 0;
+}
+/* Ensure the buttons stay aligned to the right */
+.list-group-item {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  margin-bottom: 10px;
+}
+
+.video-title {
+  flex-grow: 1;
+  margin-right: 20px; /* Add spacing between title and buttons */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.button-group {
+  display: flex;
+  gap: 10px; /* Add spacing between buttons */
 }
 </style>
